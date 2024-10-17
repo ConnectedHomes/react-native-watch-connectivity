@@ -232,3 +232,10 @@ export function _subscribeNativeSessionDidDeactivateErrorEvent(
 ) {
   return addListener(WatchEvent.EVENT_WATCH_FILE_ERROR, cb);
 }
+
+export function _subscribeToNativeWatchStateChangeEvent(
+  cb: WatchEventCallbacks['watch-state-changed'],
+  addListener: AddListenerFn = _addListener,
+) {
+  return addListener(WatchEvent.EVENT_WATCH_STATE_CHANGED, cb);
+}

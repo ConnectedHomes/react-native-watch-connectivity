@@ -37,6 +37,7 @@ export interface WatchEventCallbacks<
   'session-did-deactivate': (payload: P) => void;
   'user-info': (payload: P[]) => void;
   'user-info-error': (payload: P) => void;
+  'watch-state-changed': (payload: P) => void;
 }
 
 export type WatchEvent = keyof WatchEventCallbacks;

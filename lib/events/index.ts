@@ -16,6 +16,7 @@ import {
   _subscribeNativeSesssionBecameInactiveErrorEvent,
   _subscribeNativeSessionDidDeactivateErrorEvent,
   _subscribeNativeApplicationContextReceivedErrorEvent,
+  _subscribeToNativeWatchStateChangeEvent,
 } from './subscriptions';
 import {_addListener, _once, WatchPayload, QueuedFile} from '../native-module';
 
@@ -57,6 +58,8 @@ function listen<E extends WatchEvent>(
       return _subscribeNativeSesssionBecameInactiveErrorEvent(cb, listener);
     case 'session-did-deactivate':
       return _subscribeNativeSessionDidDeactivateErrorEvent(cb, listener);
+    case 'watch-state-changed':
+        return _subscribeToNativeWatchStateChangeEvent(cb, listener);
     default:
       throw new Error(`Unknown watch event "${event}"`);
   }
@@ -140,6 +143,11 @@ function addListener<Context extends WatchPayload = WatchPayload>(
 function addListener<Context extends WatchPayload = WatchPayload>(
   event: 'file-received-error',
   cb: WatchEventCallbacks<Context>['file-received-error'],
+): UnsubscribeFn;
+
+function addListener<Context extends WatchPayload = WatchPayload>(
+  event: 'watch-state-changed',
+  cb: WatchEventCallbacks<Context>['watch-state-changed'],
 ): UnsubscribeFn;
 
 function addListener(event: WatchEvent, cb: any): UnsubscribeFn {
