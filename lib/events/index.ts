@@ -60,6 +60,8 @@ function listen<E extends WatchEvent>(
       return _subscribeNativeSessionDidDeactivateErrorEvent(cb, listener);
     case 'watch-state-changed':
         return _subscribeToNativeWatchStateChangeEvent(cb, listener);
+    case 'watch-state-changed':
+      return _subscribeToNativeWatchStateChangeEvent(cb, listener);
     default:
       throw new Error(`Unknown watch event "${event}"`);
   }

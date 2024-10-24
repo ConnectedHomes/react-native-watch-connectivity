@@ -41,6 +41,7 @@ static NSString *EVENT_PAIR_STATUS_CHANGED = @"WatchPairStatusChanged";
 static NSString *EVENT_INSTALL_STATUS_CHANGED = @"WatchInstallStatusChanged";
 static NSString *EVENT_WATCH_USER_INFO_ERROR = @"WatchUserInfoError";
 static NSString *EVENT_WATCH_APPLICATION_CONTEXT_ERROR = @"WatchApplicationContextError";
+static NSString *EVENT_WATCH_STATE_CHANGED = @"WatchStateChanged";
 
 static RNWatch *sharedInstance;
 
@@ -69,7 +70,7 @@ RCT_EXPORT_MODULE()
     self.fileTransfers = [NSMutableDictionary new];
     self.queuedFiles = [NSMutableDictionary new];
     self.queuedUserInfo = [NSMutableDictionary new];
- 
+
     hasObservers = NO;
     pendingEvents = [NSMutableArray array];
 
@@ -102,13 +103,14 @@ RCT_EXPORT_MODULE()
             EVENT_SESSION_BECAME_INACTIVE,
             EVENT_SESSION_DID_DEACTIVATE,
             EVENT_WATCH_USER_INFO_ERROR,
-            EVENT_WATCH_APPLICATION_CONTEXT_ERROR
+            EVENT_WATCH_APPLICATION_CONTEXT_ERROR,
+            EVENT_WATCH_STATE_CHANGED
     ];
 }
 
 -(void)startObserving {
   hasObservers = YES;
- 
+
   for (NSDictionary *event in pendingEvents) {
       [self sendEventWithName:[event objectForKey:@"name"] body:[event objectForKey:@"body"]];
   }
@@ -252,7 +254,7 @@ didReceiveMessage:(NSDictionary<NSString *, id> *)message
     NSMutableDictionary *mutableMessage = [message mutableCopy];
     mutableMessage[@"id"] = messageId;
     [self.replyHandlers setObject:replyHandler forKey:messageId];
-    
+
     [self dispatchEventWithName:EVENT_RECEIVE_MESSAGE body:mutableMessage];
 }
 
@@ -430,29 +432,29 @@ RCT_EXPORT_METHOD(dequeueFile:
   if (![fileManager fileExistsAtPath:directoryURL.path]) {
     [fileManager createDirectoryAtURL:directoryURL withIntermediateDirectories:YES attributes:nil error:nil];
   }
-  
+
   NSURL *destinationURL = [directoryURL URLByAppendingPathComponent:file.fileURL.lastPathComponent];
   NSError *error;
   [fileManager copyItemAtPath:file.fileURL.path
                        toPath:destinationURL.path
                         error:&error];
-  
+
   NSNumber *timestamp = @(jsTimestamp());
   NSString *id = [timestamp stringValue];
-  
+
   NSDictionary *fileInfo = @{
     @"id": id,
     @"timestamp": timestamp,
     @"url": destinationURL.absoluteString,
     @"metadata": file.metadata != nil ? file.metadata : [NSNull null]
   };
-  
+
   if (error) {
     NSLog(@"Copying received file error: %@ %@", error, error.userInfo);
     [self dispatchEventWithName:EVENT_WATCH_FILE_ERROR body:@{@"fileInfo": fileInfo,  @"error": error, @"errorUserInfo": error.userInfo}];
     return;
   }
-  
+
   [self.queuedFiles setValue:fileInfo forKey:id];
   [self dispatchEventWithName:EVENT_WATCH_FILE_RECEIVED body:fileInfo];
 }
@@ -531,7 +533,7 @@ didReceiveApplicationContext:(NSDictionary<NSString *, id> *)applicationContext 
     } else {
         [self dispatchEventWithName:EVENT_APPLICATION_CONTEXT_RECEIVED body:applicationContext];
     }
-    
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -593,13 +595,55 @@ didReceiveUserInfo:(NSDictionary<NSString *, id> *)userInfo {
 
 - (void)dispatchEventWithName:(NSString *)name
                          body:(NSDictionary<NSString *, id> *)body {
-    
+
   if (!hasObservers) {
       [pendingEvents addObject:@{@"name": name, @"body": body}];
   } else {
       [self sendEventWithName:name body:body];
   }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Session State
+////////////////////////////////////////////////////////////////////////////////
+
+RCT_EXPORT_METHOD(getSessionState: (RCTResponseSenderBlock) callback) {
+  WCSessionActivationState state = self.session.activationState;
+  NSString* stateString = [self _getStateString:state];
+  callback(@[stateString]);
+}
+
+- (void)sessionWatchStateDidChange:(WCSession *)session {
+  WCSessionActivationState state = session.activationState;
+  NSLog(@"sessionWatchStateDidChange: %ld", (long)state);
+  [self _sendStateEvent:state];
+}
+
+- (NSString*) _getStateString: (WCSessionActivationState) state
+{
+  NSString* stateString;
+  switch(state) {
+    case WCSessionActivationStateNotActivated:
+      stateString = @"WCSessionActivationStateNotActivated";
+      break;
+    case WCSessionActivationStateInactive:
+      stateString = @"WCSessionActivationStateInactive";
+      break;
+    case WCSessionActivationStateActivated:
+      stateString = @"WCSessionActivationStateActivated";
+      break;
+  }
+  return stateString;
+}
+
+// TODO: Tidy up to match other native calls
+- (void) _sendStateEvent: (WCSessionActivationState) state
+{
+  NSString* stateString = [self _getStateString:state];
+  [self dispatchEventWithName:EVENT_WATCH_STATE_CHANGED body:@{@"state": stateString}];
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 
 @end
